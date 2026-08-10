@@ -1,0 +1,57 @@
+AUTHENTIFICATION SUPABASE — SITE FORMATIONS BEYNE
+================================================
+
+Le site est prêt pour une authentification par adresse e-mail + mot de passe.
+Il n'y a PAS d'inscription publique depuis le site : les comptes clients sont à créer dans Supabase.
+
+1. CRÉER / OUVRIR LE PROJET SUPABASE
+   - Ouvrir le tableau de bord Supabase.
+   - Aller dans les paramètres API du projet.
+   - Copier :
+       * Project URL
+       * Publishable key (ou anon key legacy)
+
+2. CONFIGURER LE SITE
+   Ouvrir le fichier : supabase-config.js
+   Remplacer :
+       https://VOTRE-PROJET.supabase.co
+   par l'URL réelle du projet.
+
+   Remplacer :
+       VOTRE_CLE_PUBLIQUE_SUPABASE
+   par la clé Publishable du projet.
+
+   NE JAMAIS utiliser la clé service_role dans ce site.
+
+3. ACTIVER L'AUTHENTIFICATION E-MAIL / MOT DE PASSE
+   Dans Supabase > Authentication > Sign In / Providers :
+   - vérifier que le fournisseur Email est activé ;
+   - conserver l'authentification par mot de passe.
+
+4. CRÉER LES COMPTES CLIENTS
+   Dans Supabase > Authentication > Users :
+   - créer les utilisateurs avec leur adresse e-mail ;
+   - attribuer / définir leur mot de passe selon votre procédure interne.
+
+5. GITHUB PAGES
+   Déposer tous les fichiers du ZIP dans le dépôt GitHub Pages sans modifier l'arborescence.
+   login.html devient la porte d'entrée pour les utilisateurs non connectés.
+
+FONCTIONNEMENT
+--------------
+- Toute page protégée vérifie la session Supabase.
+- Sans session : redirection vers login.html.
+- Après connexion : retour vers la page demandée ou index.html.
+- La session est conservée dans le navigateur et renouvelée automatiquement.
+- L'adresse du compte connecté apparaît dans le header.
+- Le bouton « Déconnexion » ferme la session.
+
+IMPORTANT — LIMITE DE GITHUB PAGES
+---------------------------------
+Cette protection est une authentification côté navigateur. Elle empêche l'accès normal à l'interface sans session,
+mais GitHub Pages reste un hébergement statique : les fichiers HTML/images publiés sont techniquement publics à
+quiconque connaît leur URL ou consulte un dépôt public. Ne placez donc pas de données confidentielles ou sensibles
+uniquement derrière ce mécanisme.
+
+Pour une vraie protection serveur des fichiers eux-mêmes, il faut un hébergement avec contrôle d'accès côté serveur
+ou servir le contenu protégé via une API/Edge Function avec autorisation.

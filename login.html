@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Connexion | Formations BEYNE</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head>
+<body class="login-page">
+<header><div class="head head-split login-head"><div class="header-logo header-logo-left"><img src="assets/logo-casa.png" alt="CASA Service Machine"></div><div class="header-center"><div class="brand">Formations <span>BEYNE</span></div></div><div class="header-logo header-logo-right"><img src="assets/logo-beyne.jpg" alt="BEYNE"></div></div></header>
+<main class="login-wrap">
+  <section class="login-card" aria-labelledby="login-title">
+    <h1 id="login-title">Accès client</h1>
+    <p class="lead">Connectez-vous avec l’adresse e-mail et le mot de passe qui vous ont été communiqués pour accéder aux formations.</p>
+
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label for="loginEmail">Adresse e-mail</label>
+        <input id="loginEmail" type="email" autocomplete="username" required placeholder="client@exemple.fr">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Mot de passe</label>
+        <div class="password-field">
+          <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Votre mot de passe">
+          <button id="togglePassword" class="password-toggle" type="button" aria-label="Afficher le mot de passe">Afficher</button>
+        </div>
+      </div>
+      <button id="loginButton" class="login-submit" type="submit">Se connecter</button><button id="forgotPassword" class="forgot-link" type="button">Mot de passe oublié ?</button>
+      <div id="loginMessage" class="login-message" role="status" aria-live="polite"></div>
+    </form>
+
+    <div class="login-help">
+      <strong>Vous n’avez pas d’identifiants ?</strong><br>
+      Contactez votre interlocuteur habituel. La création de compte n’est pas ouverte depuis ce site.
+    </div>
+  </section>
+</main>
+<footer>Support de formation client — BEYNE<br><span class="small">© 2026 — Tous droits réservés.</span></footer>
+<script>
+(function(){
+  const cfg = window.BEYNE_SUPABASE || {};
+  const form = document.getElementById('loginForm');
+  const email = document.getElementById('loginEmail');
+  const password = document.getElementById('loginPassword');
+  const button = document.getElementById('loginButton');
+  const message = document.getElementById('loginMessage');
+  const toggle = document.getElementById('togglePassword');
+  const forgot = document.getElementById('forgotPassword');
+  const badConfig = !cfg.url || !cfg.publishableKey || cfg.url.includes('VOTRE-PROJET') || cfg.publishableKey.includes('VOTRE_CLE');
+
+  function show(text, type){ message.textContent=text; message.className='login-message ' + (type || ''); }
+
+  toggle.addEventListener('click', function(){
+    const visible = password.type === 'text';
+    password.type = visible ? 'password' : 'text';
+    toggle.textContent = visible ? 'Afficher' : 'Masquer';
+    toggle.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe');
+  });
+
+  if (badConfig) {
+    show('Configuration Supabase à compléter dans supabase-config.js.', 'warning');
+    button.disabled = true;
+    return;
+  }
+  if (!window.supabase || !window.supabase.createClient) {
+    show('Le service d’authentification n’a pas pu être chargé.', 'error');
+    button.disabled = true;
+    return;
+  }
+
+  const client = window.supabase.createClient(cfg.url, cfg.publishableKey, {
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  });
+
+  client.auth.getSession().then(({data}) => {
+    if (data && data.session) goAfterLogin();
+  });
+
+  function goAfterLogin(){
+    const params = new URLSearchParams(location.search);
+    const target = params.get('redirect');
+    if (target) {
+      try {
+        const u = new URL(target);
+        if (u.origin === location.origin) { location.replace(u.href); return; }
+      } catch(e){}
+    }
+    location.replace('index.html');
+  }
+
+  forgot.addEventListener('click', async function(){
+    const mail = email.value.trim();
+    if (!mail) { show('Saisissez d’abord votre adresse e-mail.', 'warning'); email.focus(); return; }
+    forgot.disabled = true;
+    const redirectTo = new URL('reset-password.html', location.href).href;
+    const { error } = await client.auth.resetPasswordForEmail(mail, { redirectTo });
+    forgot.disabled = false;
+    if (error) { show('Impossible d’envoyer le lien de réinitialisation. Vérifiez l’adresse et réessayez.', 'error'); return; }
+    show('Un lien de réinitialisation vient d’être envoyé par e-mail.', 'success');
+  });
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    const mail = email.value.trim();
+    const pwd = password.value;
+    if (!mail || !pwd) { show('Renseignez votre adresse e-mail et votre mot de passe.', 'warning'); return; }
+
+    button.disabled = true;
+    button.textContent = 'Connexion…';
+    show('', '');
+    const { error } = await client.auth.signInWithPassword({email:mail,password:pwd});
+    if (error) {
+      show('Adresse e-mail ou mot de passe incorrect.', 'error');
+      button.disabled = false;
+      button.textContent = 'Se connecter';
+      return;
+    }
+    show('Connexion réussie. Ouverture des formations…', 'success');
+    goAfterLogin();
+  });
+})();
+</script>
+</body>
+</html>
