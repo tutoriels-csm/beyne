@@ -66,3 +66,9 @@ déconnecté localement et renvoyé vers login.html.
 Cette méthode ne nécessite ni table SQL ni plan Supabase Pro. Elle limite correctement l'usage normal du site,
 mais reste un contrôle côté navigateur : ce n'est pas une mesure de sécurité serveur équivalente à l'option
 native « Single session per user » de Supabase Pro.
+
+
+SÉCURITÉ DE SESSION
+- Une seule session active par utilisateur (contrôle côté site).
+- Déconnexion automatique après 10 minutes d’inactivité.
+- Toute interaction utilisateur remet le délai d’inactivité à zéro.

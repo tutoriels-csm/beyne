@@ -9,8 +9,15 @@
   const SESSION_META_KEY = 'beyne_active_session';
   const SESSION_TIME_KEY = 'beyne_active_session_at';
   const CHECK_INTERVAL_MS = 30000;
+  const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
+  const ACTIVITY_WRITE_THROTTLE_MS = 5000;
+  const IDLE_CHECK_INTERVAL_MS = 15000;
+  const LAST_ACTIVITY_KEY = 'beyne_last_activity_at';
   let checkTimer = null;
+  let idleTimer = null;
   let checking = false;
+  let lastActivityWrite = 0;
+  let idleLogoutRunning = false;
 
   function storageKey(userId){ return 'beyne_device_session_' + userId; }
   function newSessionToken(){
@@ -48,6 +55,58 @@
   });
   window.beyneSupabase = client;
 
+  function recordActivity(force){
+    const now = Date.now();
+    if (!force && now - lastActivityWrite < ACTIVITY_WRITE_THROTTLE_MS) return;
+    lastActivityWrite = now;
+    try { localStorage.setItem(LAST_ACTIVITY_KEY, String(now)); } catch(e){}
+  }
+
+  function readLastActivity(){
+    try {
+      const value = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    } catch(e){ return 0; }
+  }
+
+  async function logoutForInactivity(){
+    if (idleLogoutRunning) return;
+    idleLogoutRunning = true;
+    if (checkTimer) clearInterval(checkTimer);
+    if (idleTimer) clearInterval(idleTimer);
+    try {
+      const { data } = await client.auth.getSession();
+      const user = data && data.session && data.session.user;
+      if (user) localStorage.removeItem(storageKey(user.id));
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
+    } catch(e){}
+    try { await client.auth.signOut({ scope: 'local' }); } catch(e){}
+    const url = new URL(loginUrl);
+    url.searchParams.set('reason', 'inactivity');
+    window.location.replace(url.href);
+  }
+
+  function checkInactivity(){
+    const last = readLastActivity();
+    if (!last) { recordActivity(true); return; }
+    if (Date.now() - last >= INACTIVITY_LIMIT_MS) logoutForInactivity();
+  }
+
+  function startInactivityTracking(){
+    recordActivity(true);
+    const activityEvents = ['pointerdown','keydown','scroll','touchstart'];
+    activityEvents.forEach(evt => window.addEventListener(evt, () => recordActivity(false), { passive:true }));
+    window.addEventListener('mousemove', () => recordActivity(false), { passive:true });
+    window.addEventListener('focus', () => { checkInactivity(); if (!idleLogoutRunning) recordActivity(true); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        checkInactivity();
+        if (!idleLogoutRunning) recordActivity(true);
+      }
+    });
+    idleTimer = window.setInterval(checkInactivity, IDLE_CHECK_INTERVAL_MS);
+  }
+
   async function addAccountControls(user) {
     const nav = document.querySelector('.nav-actions');
     if (!nav || nav.querySelector('.auth-account')) return;
@@ -64,7 +123,7 @@
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       logout.textContent = 'Déconnexion…';
-      try { localStorage.removeItem(storageKey(user.id)); } catch(e){}
+      try { localStorage.removeItem(storageKey(user.id)); localStorage.removeItem(LAST_ACTIVITY_KEY); } catch(e){}
       await client.auth.signOut({ scope: 'local' });
       window.location.replace(loginUrl);
     });
@@ -136,12 +195,14 @@
     const ok = await verifyUniqueSession({ allowBootstrap: true });
     if (!ok) return;
     reveal();
+    startInactivityTracking();
     checkTimer = window.setInterval(() => verifyUniqueSession({ allowBootstrap: false }), CHECK_INTERVAL_MS);
   }
 
   client.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
       if (checkTimer) clearInterval(checkTimer);
+      if (idleTimer) clearInterval(idleTimer);
       return;
     }
     if (session && session.user && document.readyState !== 'loading') addAccountControls(session.user);

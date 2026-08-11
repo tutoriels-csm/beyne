@@ -77,6 +77,8 @@
   const reason = new URLSearchParams(location.search).get('reason');
   if (reason === 'session-replaced') {
     show('Ce compte a été connecté sur un autre appareil ou navigateur. Veuillez vous reconnecter ici pour reprendre la session.', 'warning');
+  } else if (reason === 'inactivity') {
+    show('Vous avez été déconnecté automatiquement après 10 minutes d’inactivité. Veuillez vous reconnecter.', 'warning');
   }
 
   const SESSION_META_KEY = 'beyne_active_session';
