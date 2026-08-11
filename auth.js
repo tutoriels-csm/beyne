@@ -4,19 +4,25 @@
   const currentScript = document.currentScript;
   const siteRoot = currentScript ? new URL('.', currentScript.src) : new URL('./', window.location.href);
   const loginUrl = new URL('login.html', siteRoot).href;
-  const homeUrl = new URL('index.html', siteRoot).href;
-
   const cfg = window.BEYNE_SUPABASE || {};
   const badConfig = !cfg.url || !cfg.publishableKey || cfg.url.includes('VOTRE-PROJET') || cfg.publishableKey.includes('VOTRE_CLE');
+  const SESSION_META_KEY = 'beyne_active_session';
+  const SESSION_TIME_KEY = 'beyne_active_session_at';
+  const CHECK_INTERVAL_MS = 30000;
+  let checkTimer = null;
+  let checking = false;
 
-  function reveal() {
-    document.documentElement.classList.remove('auth-pending');
+  function storageKey(userId){ return 'beyne_device_session_' + userId; }
+  function newSessionToken(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
   }
-
-  function redirectToLogin() {
+  function reveal(){ document.documentElement.classList.remove('auth-pending'); }
+  function redirectToLogin(reason){
     const here = window.location.href;
     const url = new URL(loginUrl);
     url.searchParams.set('redirect', here);
+    if (reason) url.searchParams.set('reason', reason);
     window.location.replace(url.href);
   }
 
@@ -38,18 +44,13 @@
   }
 
   const client = window.supabase.createClient(cfg.url, cfg.publishableKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   window.beyneSupabase = client;
 
   async function addAccountControls(user) {
     const nav = document.querySelector('.nav-actions');
     if (!nav || nav.querySelector('.auth-account')) return;
-
     const account = document.createElement('div');
     account.className = 'auth-account';
     account.title = user.email || 'Compte connecté';
@@ -63,37 +64,93 @@
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       logout.textContent = 'Déconnexion…';
-      await client.auth.signOut();
+      try { localStorage.removeItem(storageKey(user.id)); } catch(e){}
+      await client.auth.signOut({ scope: 'local' });
       window.location.replace(loginUrl);
     });
-
     nav.prepend(logout);
     nav.prepend(account);
   }
 
-  async function protect() {
-    try {
-      const { data, error } = await client.auth.getSession();
-      if (error || !data.session || !data.session.user) {
-        redirectToLogin();
-        return;
+  async function bootstrapLegacySession(user){
+    // Migration douce : si aucun jeton actif n'existe encore pour ce compte,
+    // le navigateur déjà connecté devient la première session enregistrée.
+    const token = newSessionToken();
+    const { data, error } = await client.auth.updateUser({
+      data: {
+        [SESSION_META_KEY]: token,
+        [SESSION_TIME_KEY]: new Date().toISOString()
       }
-      await addAccountControls(data.session.user);
-      reveal();
-    } catch (e) {
+    });
+    if (error) throw error;
+    const id = (data && data.user && data.user.id) || user.id;
+    localStorage.setItem(storageKey(id), token);
+    return token;
+  }
+
+  async function verifyUniqueSession(options){
+    if (checking) return true;
+    checking = true;
+    try {
+      const { data:sessionData, error:sessionError } = await client.auth.getSession();
+      if (sessionError || !sessionData.session || !sessionData.session.user) {
+        redirectToLogin();
+        return false;
+      }
+
+      // getUser() interroge le serveur Auth : on ne se contente pas du JWT local.
+      const { data:userData, error:userError } = await client.auth.getUser();
+      if (userError || !userData.user) {
+        redirectToLogin();
+        return false;
+      }
+      const user = userData.user;
+      let serverToken = user.user_metadata && user.user_metadata[SESSION_META_KEY];
+      let localToken = localStorage.getItem(storageKey(user.id));
+
+      if (!serverToken && options && options.allowBootstrap) {
+        serverToken = await bootstrapLegacySession(user);
+        localToken = serverToken;
+      }
+
+      if (!serverToken || !localToken || serverToken !== localToken) {
+        try { localStorage.removeItem(storageKey(user.id)); } catch(e){}
+        // IMPORTANT : scope local uniquement, sinon l'ancienne session pourrait
+        // déconnecter la nouvelle session active sur un autre appareil.
+        await client.auth.signOut({ scope: 'local' });
+        redirectToLogin('session-replaced');
+        return false;
+      }
+
+      await addAccountControls(user);
+      return true;
+    } catch(e) {
       redirectToLogin();
+      return false;
+    } finally {
+      checking = false;
     }
+  }
+
+  async function protect(){
+    const ok = await verifyUniqueSession({ allowBootstrap: true });
+    if (!ok) return;
+    reveal();
+    checkTimer = window.setInterval(() => verifyUniqueSession({ allowBootstrap: false }), CHECK_INTERVAL_MS);
   }
 
   client.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      redirectToLogin();
+      if (checkTimer) clearInterval(checkTimer);
       return;
     }
-    if (session && session.user && document.readyState !== 'loading') {
-      addAccountControls(session.user);
-    }
+    if (session && session.user && document.readyState !== 'loading') addAccountControls(session.user);
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) verifyUniqueSession({ allowBootstrap: false });
+  });
+  window.addEventListener('focus', () => verifyUniqueSession({ allowBootstrap: false }));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', protect, { once: true });

@@ -55,3 +55,14 @@ uniquement derrière ce mécanisme.
 
 Pour une vraie protection serveur des fichiers eux-mêmes, il faut un hébergement avec contrôle d'accès côté serveur
 ou servir le contenu protégé via une API/Edge Function avec autorisation.
+
+SESSION UNIQUE - VERSION SANS SUPABASE PRO
+------------------------------------------
+Cette version utilise les métadonnées du compte Supabase pour enregistrer un identifiant de session actif.
+À chaque nouvelle connexion, cet identifiant est remplacé. Les pages vérifient l'identifiant au chargement,
+au retour sur l'onglet et toutes les 30 secondes. Si l'identifiant ne correspond plus, le navigateur est
+déconnecté localement et renvoyé vers login.html.
+
+Cette méthode ne nécessite ni table SQL ni plan Supabase Pro. Elle limite correctement l'usage normal du site,
+mais reste un contrôle côté navigateur : ce n'est pas une mesure de sécurité serveur équivalente à l'option
+native « Single session per user » de Supabase Pro.

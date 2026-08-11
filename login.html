@@ -74,8 +74,45 @@
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
   });
 
-  client.auth.getSession().then(({data}) => {
-    if (data && data.session) goAfterLogin();
+  const reason = new URLSearchParams(location.search).get('reason');
+  if (reason === 'session-replaced') {
+    show('Ce compte a été connecté sur un autre appareil ou navigateur. Veuillez vous reconnecter ici pour reprendre la session.', 'warning');
+  }
+
+  const SESSION_META_KEY = 'beyne_active_session';
+  const SESSION_TIME_KEY = 'beyne_active_session_at';
+
+  function storageKey(userId){ return 'beyne_device_session_' + userId; }
+  function newSessionToken(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  async function registerThisBrowser(user){
+    const token = newSessionToken();
+    const { data, error } = await client.auth.updateUser({
+      data: {
+        [SESSION_META_KEY]: token,
+        [SESSION_TIME_KEY]: new Date().toISOString()
+      }
+    });
+    if (error) throw error;
+    const id = (data && data.user && data.user.id) || (user && user.id);
+    if (!id) throw new Error('Identifiant utilisateur indisponible');
+    localStorage.setItem(storageKey(id), token);
+    return token;
+  }
+
+  client.auth.getSession().then(async ({data}) => {
+    if (!data || !data.session || !data.session.user) return;
+    try {
+      const { data:userData, error:userError } = await client.auth.getUser();
+      if (userError || !userData.user) return;
+      const user = userData.user;
+      const serverToken = user.user_metadata && user.user_metadata[SESSION_META_KEY];
+      const localToken = localStorage.getItem(storageKey(user.id));
+      if (serverToken && localToken && serverToken === localToken) goAfterLogin();
+    } catch(e){}
   });
 
   function goAfterLogin(){
@@ -110,14 +147,23 @@
     button.disabled = true;
     button.textContent = 'Connexion…';
     show('', '');
-    const { error } = await client.auth.signInWithPassword({email:mail,password:pwd});
+    const { data:signInData, error } = await client.auth.signInWithPassword({email:mail,password:pwd});
     if (error) {
       show('Adresse e-mail ou mot de passe incorrect.', 'error');
       button.disabled = false;
       button.textContent = 'Se connecter';
       return;
     }
-    show('Connexion réussie. Ouverture des formations…', 'success');
+    try {
+      await registerThisBrowser(signInData && signInData.user);
+    } catch(regError) {
+      await client.auth.signOut({ scope: 'local' });
+      show('Connexion impossible : le contrôle de session unique n’a pas pu être initialisé.', 'error');
+      button.disabled = false;
+      button.textContent = 'Se connecter';
+      return;
+    }
+    show('Connexion réussie. Cette connexion devient la session active du compte.', 'success');
     goAfterLogin();
   });
 })();
