@@ -1,0 +1,40 @@
+ENVOI DIRECT DES TICKETS BEYNE — SUPABASE + GMAIL
+
+1. GOOGLE CLOUD
+- Créer/choisir un projet Google Cloud.
+- Activer « Gmail API ».
+- Créer un client OAuth 2.0.
+- Autoriser le scope : https://www.googleapis.com/auth/gmail.send
+- Obtenir un refresh token pour la boîte Gmail qui enverra les tickets.
+
+2. SECRETS SUPABASE
+Dans Supabase > Edge Functions > Secrets, créer :
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_SENDER=adresse-gmail-qui-envoie@gmail.com
+TICKET_RECIPIENT=adresse-qui-recoit-les-tickets@...
+
+Ne jamais placer ces valeurs dans index.html, aide.html ou supabase-config.js.
+
+3. EDGE FUNCTION
+Déployer le dossier :
+supabase/functions/send-beyne-ticket/index.ts
+
+Nom exact de la fonction : send-beyne-ticket
+
+Avec la CLI Supabase :
+supabase functions deploy send-beyne-ticket
+
+4. SITE
+Mettre en ligne tous les fichiers de ce dossier sur GitHub Pages.
+La page aide.html appelle automatiquement :
+https://VOTRE-PROJET.supabase.co/functions/v1/send-beyne-ticket
+
+5. COMPORTEMENT CONSERVÉ
+- Authentification Supabase existante conservée.
+- Session unique existante conservée.
+- Déconnexion après 10 minutes d’inactivité conservée.
+- Champ Machine reste obligatoire et non prérempli.
+- Tous les champs du ticket restent obligatoires.
+- L’application Mail/Outlook/Gmail de l’appareil ne s’ouvre plus.
