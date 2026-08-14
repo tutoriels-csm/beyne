@@ -8,7 +8,7 @@
   const badConfig = !cfg.url || !cfg.publishableKey || cfg.url.includes('VOTRE-PROJET') || cfg.publishableKey.includes('VOTRE_CLE');
   const SESSION_META_KEY = 'beyne_active_session';
   const SESSION_TIME_KEY = 'beyne_active_session_at';
-  const CHECK_INTERVAL_MS = 30000;
+  const CHECK_INTERVAL_MS = 5000;
   const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
   const ACTIVITY_WRITE_THROTTLE_MS = 5000;
   const IDLE_CHECK_INTERVAL_MS = 15000;
