@@ -71,18 +71,19 @@
   }
 
   const client = window.supabase.createClient(cfg.url, cfg.publishableKey, {
-    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.sessionStorage}
   });
 
   const reason = new URLSearchParams(location.search).get('reason');
   if (reason === 'session-replaced') {
     show('Ce compte a été connecté sur un autre appareil ou navigateur. Veuillez vous reconnecter ici pour reprendre la session.', 'warning');
+  } else if (reason === 'session-check-error') {
+    show('Le contrôle de session unique est indisponible. Vérifiez que la table active_sessions est bien créée dans Supabase.', 'error');
   } else if (reason === 'inactivity') {
     show('Vous avez été déconnecté automatiquement après 10 minutes d’inactivité. Veuillez vous reconnecter.', 'warning');
   }
 
-  const SESSION_META_KEY = 'beyne_active_session';
-  const SESSION_TIME_KEY = 'beyne_active_session_at';
+  const ACTIVE_SESSION_TABLE = 'active_sessions';
 
   function storageKey(userId){ return 'beyne_device_session_' + userId; }
   function newSessionToken(){
@@ -91,29 +92,32 @@
   }
 
   async function registerThisBrowser(user){
-    const token = newSessionToken();
-    const { data, error } = await client.auth.updateUser({
-      data: {
-        [SESSION_META_KEY]: token,
-        [SESSION_TIME_KEY]: new Date().toISOString()
-      }
-    });
-    if (error) throw error;
-    const id = (data && data.user && data.user.id) || (user && user.id);
+    const id = user && user.id;
     if (!id) throw new Error('Identifiant utilisateur indisponible');
-    localStorage.setItem(storageKey(id), token);
+    const token = newSessionToken();
+    const now = new Date().toISOString();
+
+    const { error } = await client
+      .from(ACTIVE_SESSION_TABLE)
+      .upsert({ user_id: id, session_token: token, updated_at: now }, { onConflict: 'user_id' });
+
+    if (error) throw error;
+    sessionStorage.setItem(storageKey(id), token);
     return token;
   }
 
   client.auth.getSession().then(async ({data}) => {
     if (!data || !data.session || !data.session.user) return;
     try {
-      const { data:userData, error:userError } = await client.auth.getUser();
-      if (userError || !userData.user) return;
-      const user = userData.user;
-      const serverToken = user.user_metadata && user.user_metadata[SESSION_META_KEY];
-      const localToken = localStorage.getItem(storageKey(user.id));
-      if (serverToken && localToken && serverToken === localToken) goAfterLogin();
+      const user = data.session.user;
+      const localToken = sessionStorage.getItem(storageKey(user.id));
+      if (!localToken) return;
+      const { data:activeSession, error } = await client
+        .from(ACTIVE_SESSION_TABLE)
+        .select('session_token')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!error && activeSession && activeSession.session_token === localToken) goAfterLogin();
     } catch(e){}
   });
 
@@ -160,7 +164,7 @@
       await registerThisBrowser(signInData && signInData.user);
     } catch(regError) {
       await client.auth.signOut({ scope: 'local' });
-      show('Connexion impossible : le contrôle de session unique n’a pas pu être initialisé.', 'error');
+      show('Connexion impossible : la session unique n’a pas pu être enregistrée dans Supabase. Vérifiez la table active_sessions et ses règles RLS.', 'error');
       button.disabled = false;
       button.textContent = 'Se connecter';
       return;

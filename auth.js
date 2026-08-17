@@ -6,8 +6,7 @@
   const loginUrl = new URL('login.html', siteRoot).href;
   const cfg = window.BEYNE_SUPABASE || {};
   const badConfig = !cfg.url || !cfg.publishableKey || cfg.url.includes('VOTRE-PROJET') || cfg.publishableKey.includes('VOTRE_CLE');
-  const SESSION_META_KEY = 'beyne_active_session';
-  const SESSION_TIME_KEY = 'beyne_active_session_at';
+  const ACTIVE_SESSION_TABLE = 'active_sessions';
   const CHECK_INTERVAL_MS = 5000;
   const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
   const ACTIVITY_WRITE_THROTTLE_MS = 5000;
@@ -51,7 +50,7 @@
   }
 
   const client = window.supabase.createClient(cfg.url, cfg.publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.sessionStorage }
   });
   window.beyneSupabase = client;
 
@@ -59,14 +58,27 @@
     const now = Date.now();
     if (!force && now - lastActivityWrite < ACTIVITY_WRITE_THROTTLE_MS) return;
     lastActivityWrite = now;
-    try { localStorage.setItem(LAST_ACTIVITY_KEY, String(now)); } catch(e){}
+    try { sessionStorage.setItem(LAST_ACTIVITY_KEY, String(now)); } catch(e){}
   }
 
   function readLastActivity(){
     try {
-      const value = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      const value = Number(sessionStorage.getItem(LAST_ACTIVITY_KEY));
       return Number.isFinite(value) && value > 0 ? value : 0;
     } catch(e){ return 0; }
+  }
+
+  async function clearOwnActiveSession(user) {
+    if (!user || !user.id) return;
+    let token = '';
+    try { token = sessionStorage.getItem(storageKey(user.id)) || ''; } catch(e){}
+    if (!token) return;
+    try {
+      await client.from(ACTIVE_SESSION_TABLE)
+        .delete()
+        .eq('user_id', user.id)
+        .eq('session_token', token);
+    } catch(e){}
   }
 
   async function logoutForInactivity(){
@@ -77,8 +89,9 @@
     try {
       const { data } = await client.auth.getSession();
       const user = data && data.session && data.session.user;
-      if (user) localStorage.removeItem(storageKey(user.id));
-      localStorage.removeItem(LAST_ACTIVITY_KEY);
+      if (user) await clearOwnActiveSession(user);
+      if (user) sessionStorage.removeItem(storageKey(user.id));
+      sessionStorage.removeItem(LAST_ACTIVITY_KEY);
     } catch(e){}
     try { await client.auth.signOut({ scope: 'local' }); } catch(e){}
     const url = new URL(loginUrl);
@@ -107,14 +120,158 @@
     idleTimer = window.setInterval(checkInactivity, IDLE_CHECK_INTERVAL_MS);
   }
 
+  function ensurePasswordModal(user) {
+    let modal = document.getElementById('passwordChangeModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'passwordChangeModal';
+    modal.className = 'password-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="password-modal-backdrop" data-password-close="true"></div>
+      <section class="password-modal-card" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+        <button class="password-modal-close" type="button" aria-label="Fermer" data-password-close="true">×</button>
+        <div class="password-modal-icon" aria-hidden="true">🔒</div>
+        <h2 id="passwordModalTitle">Changer le mot de passe</h2>
+        <p class="password-modal-account">Compte : <strong>${(user.email || 'Utilisateur connecté').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></p>
+        <form id="passwordChangeForm" novalidate>
+          <label for="newPassword">Nouveau mot de passe</label>
+          <div class="password-field-wrap">
+            <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="8 caractères minimum">
+            <button class="password-toggle" type="button" data-toggle-password="newPassword" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+
+          <label for="confirmPassword">Confirmer le nouveau mot de passe</label>
+          <div class="password-field-wrap">
+            <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="Saisissez-le une seconde fois">
+            <button class="password-toggle" type="button" data-toggle-password="confirmPassword" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+
+          <div id="passwordChangeMessage" class="password-change-message" role="status" aria-live="polite"></div>
+
+          <div class="password-modal-actions">
+            <button class="password-cancel-btn" type="button" data-password-close="true">Annuler</button>
+            <button class="password-save-btn" id="passwordSaveBtn" type="submit">Enregistrer le nouveau mot de passe</button>
+          </div>
+        </form>
+      </section>`;
+    document.body.appendChild(modal);
+
+    const form = modal.querySelector('#passwordChangeForm');
+    const newPwd = modal.querySelector('#newPassword');
+    const confirmPwd = modal.querySelector('#confirmPassword');
+    const msg = modal.querySelector('#passwordChangeMessage');
+    const saveBtn = modal.querySelector('#passwordSaveBtn');
+
+    function closePasswordModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('password-modal-open');
+      form.reset();
+      msg.textContent = '';
+      msg.className = 'password-change-message';
+    }
+
+    modal.addEventListener('click', (event) => {
+      if (event.target.closest('[data-password-close="true"]')) {
+        closePasswordModal();
+        return;
+      }
+      const toggle = event.target.closest('[data-toggle-password]');
+      if (toggle) {
+        const field = modal.querySelector('#' + toggle.dataset.togglePassword);
+        if (!field) return;
+        const visible = field.type === 'text';
+        field.type = visible ? 'password' : 'text';
+        toggle.textContent = visible ? 'Afficher' : 'Masquer';
+        toggle.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe');
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal.classList.contains('is-open')) closePasswordModal();
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      msg.textContent = '';
+      msg.className = 'password-change-message';
+
+      const password = newPwd.value;
+      const confirmation = confirmPwd.value;
+
+      if (password.length < 8) {
+        msg.textContent = 'Le nouveau mot de passe doit contenir au moins 8 caractères.';
+        msg.classList.add('is-error');
+        newPwd.focus();
+        return;
+      }
+      if (password !== confirmation) {
+        msg.textContent = 'Les deux mots de passe ne correspondent pas.';
+        msg.classList.add('is-error');
+        confirmPwd.focus();
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Enregistrement…';
+
+      try {
+        const { error } = await client.auth.updateUser({ password });
+        if (error) throw error;
+
+        msg.textContent = '✓ Mot de passe modifié avec succès.';
+        msg.classList.add('is-success');
+        form.querySelectorAll('input').forEach(input => input.disabled = true);
+
+        setTimeout(() => {
+          closePasswordModal();
+          form.querySelectorAll('input').forEach(input => input.disabled = false);
+        }, 1600);
+      } catch (error) {
+        const raw = String((error && error.message) || '');
+        let friendly = 'Impossible de modifier le mot de passe. Réessayez.';
+        if (/same password/i.test(raw)) friendly = 'Le nouveau mot de passe doit être différent de l’ancien.';
+        else if (/reauth|recent|session/i.test(raw)) friendly = 'Pour des raisons de sécurité, reconnectez-vous puis réessayez.';
+        else if (/weak|password/i.test(raw) && /character|length|short/i.test(raw)) friendly = 'Le mot de passe choisi ne respecte pas les exigences de sécurité.';
+        msg.textContent = friendly;
+        msg.classList.add('is-error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Enregistrer le nouveau mot de passe';
+      }
+    });
+
+    modal.openPasswordChange = () => {
+      form.reset();
+      form.querySelectorAll('input').forEach(input => input.disabled = false);
+      msg.textContent = '';
+      msg.className = 'password-change-message';
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('password-modal-open');
+      setTimeout(() => newPwd.focus(), 50);
+    };
+
+    return modal;
+  }
+
   async function addAccountControls(user) {
     const nav = document.querySelector('.nav-actions');
     if (!nav || nav.querySelector('.auth-account')) return;
-    const account = document.createElement('div');
-    account.className = 'auth-account';
-    account.title = user.email || 'Compte connecté';
+
+    const account = document.createElement('button');
+    account.type = 'button';
+    account.className = 'auth-account auth-account-button';
+    account.title = 'Changer le mot de passe de ' + (user.email || 'ce compte');
+    account.setAttribute('aria-label', 'Compte ' + (user.email || 'connecté') + ' – changer le mot de passe');
     account.innerHTML = '<span class="auth-dot" aria-hidden="true"></span><span class="auth-email"></span>';
     account.querySelector('.auth-email').textContent = user.email || 'Connecté';
+    account.addEventListener('click', () => {
+      const modal = ensurePasswordModal(user);
+      if (modal && typeof modal.openPasswordChange === 'function') modal.openPasswordChange();
+    });
 
     const logout = document.createElement('button');
     logout.type = 'button';
@@ -123,7 +280,8 @@
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       logout.textContent = 'Déconnexion…';
-      try { localStorage.removeItem(storageKey(user.id)); localStorage.removeItem(LAST_ACTIVITY_KEY); } catch(e){}
+      try { await clearOwnActiveSession(user); } catch(e){}
+      try { sessionStorage.removeItem(storageKey(user.id)); sessionStorage.removeItem(LAST_ACTIVITY_KEY); } catch(e){}
       await client.auth.signOut({ scope: 'local' });
       window.location.replace(loginUrl);
     });
@@ -131,25 +289,10 @@
     nav.prepend(account);
   }
 
-  async function bootstrapLegacySession(user){
-    // Migration douce : si aucun jeton actif n'existe encore pour ce compte,
-    // le navigateur déjà connecté devient la première session enregistrée.
-    const token = newSessionToken();
-    const { data, error } = await client.auth.updateUser({
-      data: {
-        [SESSION_META_KEY]: token,
-        [SESSION_TIME_KEY]: new Date().toISOString()
-      }
-    });
-    if (error) throw error;
-    const id = (data && data.user && data.user.id) || user.id;
-    localStorage.setItem(storageKey(id), token);
-    return token;
-  }
-
   async function verifyUniqueSession(options){
     if (checking) return true;
     checking = true;
+    const initialCheck = !!(options && options.initial);
     try {
       const { data:sessionData, error:sessionError } = await client.auth.getSession();
       if (sessionError || !sessionData.session || !sessionData.session.user) {
@@ -157,26 +300,38 @@
         return false;
       }
 
-      // getUser() interroge le serveur Auth : on ne se contente pas du JWT local.
-      const { data:userData, error:userError } = await client.auth.getUser();
-      if (userError || !userData.user) {
-        redirectToLogin();
+      const user = sessionData.session.user;
+      let localToken = '';
+      try { localToken = sessionStorage.getItem(storageKey(user.id)) || ''; } catch(e){}
+
+      if (!localToken) {
+        try { await client.auth.signOut({ scope: 'local' }); } catch(e){}
+        redirectToLogin('session-replaced');
         return false;
       }
-      const user = userData.user;
-      let serverToken = user.user_metadata && user.user_metadata[SESSION_META_KEY];
-      let localToken = localStorage.getItem(storageKey(user.id));
 
-      if (!serverToken && options && options.allowBootstrap) {
-        serverToken = await bootstrapLegacySession(user);
-        localToken = serverToken;
+      const { data:activeSession, error:activeError } = await client
+        .from(ACTIVE_SESSION_TABLE)
+        .select('session_token, updated_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (activeError) {
+        console.error('Contrôle de session unique indisponible :', activeError);
+        // Au chargement initial, on ne révèle jamais une page protégée si le contrôle serveur échoue.
+        // En cours d'utilisation, une panne réseau ponctuelle ne déconnecte pas immédiatement le client.
+        if (initialCheck) {
+          try { await client.auth.signOut({ scope: 'local' }); } catch(e){}
+          redirectToLogin('session-check-error');
+          return false;
+        }
+        return true;
       }
 
-      if (!serverToken || !localToken || serverToken !== localToken) {
-        try { localStorage.removeItem(storageKey(user.id)); } catch(e){}
-        // IMPORTANT : scope local uniquement, sinon l'ancienne session pourrait
-        // déconnecter la nouvelle session active sur un autre appareil.
-        await client.auth.signOut({ scope: 'local' });
+      if (!activeSession || !activeSession.session_token || activeSession.session_token !== localToken) {
+        try { sessionStorage.removeItem(storageKey(user.id)); } catch(e){}
+        // scope local uniquement : on ferme seulement l'ancienne connexion détectée.
+        try { await client.auth.signOut({ scope: 'local' }); } catch(e){}
         redirectToLogin('session-replaced');
         return false;
       }
@@ -184,19 +339,24 @@
       await addAccountControls(user);
       return true;
     } catch(e) {
-      redirectToLogin();
-      return false;
+      console.error(e);
+      if (initialCheck) {
+        try { await client.auth.signOut({ scope: 'local' }); } catch(_){}
+        redirectToLogin('session-check-error');
+        return false;
+      }
+      return true;
     } finally {
       checking = false;
     }
   }
 
   async function protect(){
-    const ok = await verifyUniqueSession({ allowBootstrap: true });
+    const ok = await verifyUniqueSession({ initial: true });
     if (!ok) return;
     reveal();
     startInactivityTracking();
-    checkTimer = window.setInterval(() => verifyUniqueSession({ allowBootstrap: false }), CHECK_INTERVAL_MS);
+    checkTimer = window.setInterval(() => verifyUniqueSession({ initial: false }), CHECK_INTERVAL_MS);
   }
 
   client.auth.onAuthStateChange((event, session) => {
@@ -209,9 +369,9 @@
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) verifyUniqueSession({ allowBootstrap: false });
+    if (!document.hidden) verifyUniqueSession({ initial: false });
   });
-  window.addEventListener('focus', () => verifyUniqueSession({ allowBootstrap: false }));
+  window.addEventListener('focus', () => verifyUniqueSession({ initial: false }));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', protect, { once: true });

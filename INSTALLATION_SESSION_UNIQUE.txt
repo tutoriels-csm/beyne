@@ -1,0 +1,19 @@
+SESSION UNIQUE BEYNE - INSTALLATION
+=================================
+
+1. Ouvrir votre projet Supabase.
+2. Aller dans SQL Editor.
+3. Cliquer sur New query.
+4. Copier/coller tout le contenu de SUPABASE_SESSION_UNIQUE.sql.
+5. Cliquer sur Run.
+6. Publier ensuite ce nouveau ZIP sur GitHub Pages.
+
+Fonctionnement :
+- Chaque connexion crée un jeton aléatoire propre à l'onglet/appareil.
+- Le jeton actif est stocké dans public.active_sessions.
+- Une nouvelle connexion remplace le jeton de l'ancienne.
+- L'ancienne connexion contrôle Supabase toutes les 5 secondes et se ferme automatiquement dès qu'elle détecte le remplacement.
+- Le stockage d'authentification utilise sessionStorage : deux onglets du même navigateur sont considérés comme deux sessions distinctes.
+- La déconnexion après 10 minutes d'inactivité reste active.
+
+IMPORTANT : après la mise en ligne de cette version, les utilisateurs déjà connectés devront se reconnecter une fois.
