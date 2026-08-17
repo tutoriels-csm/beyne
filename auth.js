@@ -120,6 +120,39 @@
     idleTimer = window.setInterval(checkInactivity, IDLE_CHECK_INTERVAL_MS);
   }
 
+  function getUserDisplayName(user) {
+    const meta = (user && user.user_metadata) || {};
+
+    const firstName = String(
+      meta.first_name ||
+      meta.firstName ||
+      meta.given_name ||
+      meta.prenom ||
+      ''
+    ).trim();
+
+    const lastName = String(
+      meta.last_name ||
+      meta.lastName ||
+      meta.family_name ||
+      meta.nom ||
+      ''
+    ).trim();
+
+    if (firstName || lastName) {
+      return [firstName, lastName].filter(Boolean).join(' ');
+    }
+
+    const fullName = String(
+      meta.full_name ||
+      meta.name ||
+      meta.display_name ||
+      ''
+    ).trim();
+
+    return fullName || 'Mon compte';
+  }
+
   function ensurePasswordModal(user) {
     let modal = document.getElementById('passwordChangeModal');
     if (modal) return modal;
@@ -134,7 +167,7 @@
         <button class="password-modal-close" type="button" aria-label="Fermer" data-password-close="true">×</button>
         <div class="password-modal-icon" aria-hidden="true">🔒</div>
         <h2 id="passwordModalTitle">Changer le mot de passe</h2>
-        <p class="password-modal-account">Compte : <strong>${(user.email || 'Utilisateur connecté').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></p>
+        <p class="password-modal-account">Compte : <strong>${getUserDisplayName(user).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></p>
         <form id="passwordChangeForm" novalidate>
           <label for="newPassword">Nouveau mot de passe</label>
           <div class="password-field-wrap">
@@ -261,13 +294,14 @@
     const nav = document.querySelector('.nav-actions');
     if (!nav || nav.querySelector('.auth-account')) return;
 
+    const displayName = getUserDisplayName(user);
     const account = document.createElement('button');
     account.type = 'button';
     account.className = 'auth-account auth-account-button';
-    account.title = 'Changer le mot de passe de ' + (user.email || 'ce compte');
-    account.setAttribute('aria-label', 'Compte ' + (user.email || 'connecté') + ' – changer le mot de passe');
+    account.title = 'Changer le mot de passe';
+    account.setAttribute('aria-label', 'Compte ' + displayName + ' – changer le mot de passe');
     account.innerHTML = '<span class="auth-dot" aria-hidden="true"></span><span class="auth-email"></span>';
-    account.querySelector('.auth-email').textContent = user.email || 'Connecté';
+    account.querySelector('.auth-email').textContent = displayName;
     account.addEventListener('click', () => {
       const modal = ensurePasswordModal(user);
       if (modal && typeof modal.openPasswordChange === 'function') modal.openPasswordChange();

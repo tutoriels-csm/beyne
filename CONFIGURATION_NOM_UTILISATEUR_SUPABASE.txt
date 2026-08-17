@@ -1,0 +1,26 @@
+AFFICHAGE NOM / PRÉNOM DANS LE HEADER BEYNE
+
+Le site n'affiche plus l'adresse e-mail du compte connecté dans le header.
+
+Ordre de recherche du nom dans user_metadata :
+1. first_name + last_name
+2. prenom + nom
+3. given_name + family_name
+4. full_name / name / display_name
+5. si aucun nom n'est renseigné : "Mon compte"
+
+Exemples de user_metadata compatibles :
+
+{
+  "first_name": "Jean",
+  "last_name": "DUPONT"
+}
+
+ou
+
+{
+  "prenom": "Jean",
+  "nom": "DUPONT"
+}
+
+Le clic sur le nom conserve la fonction de changement de mot de passe.

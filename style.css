@@ -400,3 +400,50 @@ header:after{
 /* Accueil sans compteurs sous le bandeau */
 .hero-premium{padding-bottom:0;}
 .hero-premium .heroText{padding-bottom:34px;}
+
+
+/* Bouton Mentions légales harmonisé avec les autres actions du site */
+footer a[href$="mentions-legales.html"],
+.premium-footer a[href$="mentions-legales.html"]{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-top:10px;
+  padding:9px 15px;
+  border:1px solid rgba(255,255,255,.32);
+  border-radius:999px;
+  color:#fff;
+  background:rgba(255,255,255,.08);
+  text-decoration:none;
+  font-weight:700;
+  font-size:13px;
+  line-height:1;
+  transition:background .18s ease,border-color .18s ease,transform .18s ease,color .18s ease;
+}
+
+footer a[href$="mentions-legales.html"]:hover,
+footer a[href$="mentions-legales.html"]:focus-visible,
+.premium-footer a[href$="mentions-legales.html"]:hover,
+.premium-footer a[href$="mentions-legales.html"]:focus-visible{
+  background:#fff;
+  color:#243128;
+  border-color:#fff;
+  transform:translateY(-1px);
+  outline:none;
+}
+
+footer a[href$="mentions-legales.html"]:active,
+.premium-footer a[href$="mentions-legales.html"]:active{
+  transform:translateY(0);
+}
+
+@media (max-width:600px){
+  footer a[href$="mentions-legales.html"],
+  .premium-footer a[href$="mentions-legales.html"]{
+    padding:9px 13px;
+    font-size:12px;
+  }
+}
+
+

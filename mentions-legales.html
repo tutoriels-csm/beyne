@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mentions légales | BEYNE</title>
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('auth-pending');</script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <style>
+    .legal-page{max-width:1050px;margin:34px auto 70px;padding:0 24px;line-height:1.7}
+    .legal-page h1{margin:22px 0 28px;font-size:clamp(30px,5vw,48px)}
+    .legal-page h2{margin:30px 0 10px;font-size:22px}
+    .legal-page p{margin:0 0 14px}
+    .legal-notice{margin:16px 0;padding:16px 18px;border-left:4px solid #b62025;background:#fff5f5;border-radius:8px}
+    .legal-page .back{display:inline-flex;margin-bottom:10px}
+  </style>
+</head>
+<body>
+<header><div class="head head-split">
+  <a class="header-logo header-logo-left" href="index.html" aria-label="Accueil CASA Service Machine"><img src="assets/logo-casa.png" alt="CASA Service Machine"></a>
+  <div class="header-center"><div class="brand">Mentions légales</div><div class="nav-actions"><a class="home-btn secondary" href="index.html">Accueil</a></div></div>
+  <a class="header-logo header-logo-right" href="index.html" aria-label="Accueil BEYNE"><img src="assets/logo-beyne.jpg" alt="BEYNE"></a>
+</div></header>
+
+
+<section class="legal-page">
+  <a class="back" href="index.html">← Retour à l’accueil</a>
+  <h1>Mentions légales et conditions d’utilisation</h1>
+
+  <h2>1. Éditeur du site</h2>
+  <p>Le présent site et la plateforme de tutoriels sont édités par <strong>CASA Service Machine</strong>.</p>
+  <p><strong>À compléter avant publication :</strong> forme juridique, capital social, adresse du siège, numéro SIREN/SIRET, numéro RCS, numéro de TVA intracommunautaire, adresse électronique, numéro de téléphone et nom du directeur de la publication.</p>
+
+  <h2>2. Hébergement</h2>
+  <p>Le site est hébergé au moyen du service <strong>GitHub Pages</strong>, fourni par GitHub, Inc. Le dépôt et la publication du site sont gérés par CASA Service Machine.</p>
+
+  <h2>3. Accès réservé et comptes utilisateurs</h2>
+  <p>Le site est destiné exclusivement aux clients, collaborateurs et partenaires expressément autorisés par CASA Service Machine. Les identifiants sont personnels, confidentiels et non cessibles. L’utilisateur doit avertir sans délai CASA Service Machine en cas de perte, divulgation ou utilisation non autorisée de son compte.</p>
+  <p>CASA Service Machine peut suspendre ou supprimer un accès en cas d’utilisation abusive, de partage d’identifiants, de tentative d’extraction des contenus, d’atteinte à la sécurité ou de violation des présentes conditions.</p>
+  <p>L’authentification des utilisateurs est assurée par <strong>Supabase</strong>. La plateforme utilise notamment un contrôle de session destiné à limiter l’utilisation simultanée d’un même compte. Une nouvelle connexion avec le même compte peut entraîner la déconnexion de la session précédente.</p>
+
+  <h2>4. Contenus originaux CASA Service Machine</h2>
+  <p>La structure du site, son code, son organisation, ses textes originaux, scénarios pédagogiques, tutoriels, commentaires, documents, créations graphiques et supports réalisés par CASA Service Machine sont protégés par les règles applicables à la propriété intellectuelle.</p>
+  <p>Sauf autorisation écrite préalable, sont interdits : la reproduction, la représentation, l’adaptation, la traduction, la modification, la publication, la redistribution, la commercialisation, l’extraction automatisée, la constitution d’une base de données, ainsi que toute mise à disposition à des tiers, totale ou partielle.</p>
+
+  <h2>5. Marques et contenus BEYNE</h2>
+  <p>La marque BEYNE, ses logos, dénominations de produits, photographies, illustrations, notices, documentations et autres signes distinctifs demeurent la propriété de BEYNE ou de leurs titulaires respectifs.</p>
+  <p>Les photographies, illustrations, notices, extraits documentaires et autres éléments provenant de BEYNE restent la propriété de leurs titulaires. Leur intégration sur ce site ne vaut ni cession, ni licence générale, ni autorisation de réutilisation au bénéfice des utilisateurs.</p>
+  <div class="legal-notice"><strong>Condition impérative :</strong> CASA Service Machine doit disposer des droits ou autorisations nécessaires pour héberger, reproduire ou diffuser les contenus BEYNE intégrés à la plateforme.</div>
+  <p>Toute copie, capture, téléchargement, republication ou diffusion des contenus BEYNE par un utilisateur est interdite, sauf autorisation expresse du titulaire des droits.</p>
+
+  <h2>6. Finalité pédagogique et sécurité</h2>
+  <p>Les contenus sont fournis comme supports pédagogiques et d’aide à la prise en main. Ils ne remplacent pas les notices officielles, consignes de sécurité, formations constructeur, prescriptions réglementaires, procédures d’atelier ni recommandations d’un technicien qualifié.</p>
+  <p>Avant toute intervention ou utilisation d’une machine, l’utilisateur doit consulter la documentation officielle correspondant exactement au modèle, à l’équipement et à la version logicielle concernés. Les règles de sécurité et les instructions du constructeur prévalent toujours.</p>
+
+  <h2>7. Responsabilité</h2>
+  <p>CASA Service Machine apporte un soin raisonnable à la préparation des contenus, mais ne garantit pas leur exhaustivité ni leur adaptation à toutes les configurations. Les matériels, interfaces et logiciels pouvant évoluer, l’utilisateur doit vérifier l’actualité des informations avant application.</p>
+  <p>Aucune clause ne limite une responsabilité qui ne pourrait légalement être exclue. Sous cette réserve, CASA Service Machine ne répond pas des dommages résultant d’une utilisation contraire aux notices, d’une modification non autorisée, d’une mauvaise interprétation ou d’une utilisation par une personne non formée.</p>
+
+  <h2>8. Disponibilité et sécurité informatique</h2>
+  <p>L’accès peut être interrompu pour maintenance, mise à jour, sécurité ou cas de force majeure. Il est interdit de contourner l’authentification, tester la sécurité sans autorisation, introduire un programme malveillant, perturber le service ou accéder à des données non destinées à l’utilisateur.</p>
+  <p>La gestion des comptes, l’authentification et certaines fonctions de sécurité reposent sur Supabase. Les règles de sécurité de la base de données, notamment les politiques d’accès, sont configurées afin de limiter l’accès aux informations correspondant au compte authentifié.</p>
+
+  <h2>9. Preuve et traçabilité</h2>
+  <p>Dans les limites permises par la réglementation, les journaux techniques et traces de connexion peuvent être utilisés pour assurer la sécurité, constater un incident et établir les conditions d’utilisation du service. Leur traitement doit être décrit dans l’information relative aux données personnelles.</p>
+
+  <h2>10. Droit applicable</h2>
+  <p>Les présentes conditions sont soumises au droit français. Toute difficulté doit d’abord faire l’objet d’une tentative de résolution amiable. Les règles légales de compétence juridictionnelle demeurent applicables.</p>
+
+  <h2>11. Mise à jour</h2>
+  <p>CASA Service Machine peut modifier les présentes conditions afin de tenir compte de l’évolution du service, des contenus ou de la réglementation. Version publiée : août 2026.</p></section>
+
+
+<footer>Support de formation client — BEYNE<br><a href="mentions-legales.html">Mentions légales</a><br><span class="small">© 2026 — Tous droits réservés.</span></footer>
+</body>
+</html>
